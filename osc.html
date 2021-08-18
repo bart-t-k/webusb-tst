@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+    <head>
+	    <meta charset="utf-8">
+		<style type="text/css">
+		  canvas { border: 1px solid black; }
+		</style>
+		<script>
+		    var ctx = null;
+			var canvas = null;
+			var randomNums = [];
+		
+		    var windowLength=1000;
+			var windowHeight=300;
+			
+			var timeReference = Date.now();
+			
+			
+			
+			var colors=[];
+			var t_output=null;
+			var t_output2=null;
+			var t_output3=null;
+			var t_output4=null;
+			
+			
+			function initUsb(){
+			    t_output4.innerHTML="";
+			    /*try{
+					navigator.usb.getDevices().then(devices => {
+						devices.forEach(
+										device => {
+							console.log(device.productName);      // "Arduino Micro"
+							console.log(device.manufacturerName); // "Arduino LLC"
+												  }	
+										);
+					});
+				}catch(exc){
+					    console.log("exception on usb");
+						console.log(exc);
+						
+						t_output4.innerHTML+="exception on usb<br>";
+						t_output4.innerHTML+=exc+"<br>";
+						t_output4.innerHTML+=exc.message+"<br>";
+				}*/
+				
+				try{
+					navigator.usb.getDevices()
+					.then(devices => {
+					  console.log("Total devices: " + devices.length);
+					  t_output4.innerHTML+="Total devices: " + devices.length+"<br>";
+					  devices.forEach(device => {
+						console.log("Product name: " + device.productName + ", serial number " + device.serialNumber);
+						t_output4.innerHTML+="Product name: " + device.productName + ", serial number " + device.serialNumber+"<br>";
+					  });
+					});
+				}catch(exc){
+					    console.log("2. exception on usb");
+						console.log(exc);
+						t_output4.innerHTML+="exception on usb<br>";
+						t_output4.innerHTML+=exc+"<br>";
+						t_output4.innerHTML+=exc.message+"<br>";
+				}
+			}
+			
+			function avgBuff(){//valid avg since buff is full, def vals are zeros
+				this._maxlength=40;
+				this._buff=[];
+				//this._buff[0]=0;
+				for(i=0;i<this._maxlength;i++)this._buff[i]=0;
+				this._cursor=0;
+				this._sum=0;
+				this._avg=0;
+				this.addToBuffer=_add2avgBuff;
+				this.getAvg=_getAvg;
+			}
+			
+			function _add2avgBuff(data){
+				this._sum-=this._buff[(this._cursor)];
+				this._buff[this._cursor] = data;
+				this._sum+=data;
+				this._avg=this._sum/this._buff.length;
+				this._cursor++;
+				if(this._cursor==this._maxlength)this._cursor=0;
+			}
+			function _getAvg(){
+			    return Math.round(this._avg);
+			}
+			
+		
+			
+			var inter_counter=0;
+			var inter_counter2=150;
+			
+			function getNumber(){
+			    inter_counter++;
+				if(inter_counter>10) {inter_counter=0; inter_counter2+=10;}
+				if(inter_counter2>windowHeight)inter_counter2=0;
+				return inter_counter2;
+			}
+			
+		    function init(){
+			    
+				t_output = document.getElementById('t_output');
+				t_output2 = document.getElementById('t_output2');
+				t_output3 = document.getElementById('t_output3');
+				t_output4 = document.getElementById('t_output4');
+				t_output.innerHTML="initialized";
+				t_output2.innerHTML="initialized2";
+				t_output3.innerHTML="initialized3";
+				t_output4.innerHTML="initialized4";
+				
+								
+			    var __c=0;
+				var __op=1;
+			    colors[__c++] = 'rgba(0,  140, 0, '+__op+')';
+				colors[__c++] = 'rgba(120, 200, 120, '+__op+')';
+				colors[__c++] = 'rgba(240, 240, 240, '+__op+')';
+				
+				
+				canvas = document.getElementById('g_output');
+				ctx = canvas.getContext('2d');
+				ctx.beginPath();
+				
+				 setInterval(   ()=>{tick()},  1);
+				
+				
+				//setInterval(()=>{ctx.stroke();}, 100);
+				
+			}
+			
+			var _avgDeltaBuff_tick = new avgBuff();
+			var _strt_tick=Date.now();
+			async function tick(){
+				var number = getNumber();
+				onData(number);
+				
+				var _now_tick = Date.now();
+				_avgDeltaBuff_tick.addToBuffer(_now_tick-_strt_tick);
+				_strt_tick=_now_tick;
+				t_output3.innerHTML= "onTick:  dlta avg: "+ _avgDeltaBuff_tick.getAvg() + "ms " + Math.round(1000/_avgDeltaBuff_tick.getAvg()) + "Hz  " ;
+			}
+			
+			
+			var _avgDeltaBuff_onData = new avgBuff();
+			var n=0;
+			async function onData(data) {
+				var _strt=Date.now();
+				
+				
+				//drawNextData(data);
+				//drawNextData(null, _avgDeltaBuff_onData.getAvg()*10);
+				//drawNextData2(_now-timeReference, _avgDeltaBuff_onData.getAvg()*10);
+				drawNextData2(Date.now()-timeReference, data);
+				drawNextData2(Date.now()-timeReference, _avgDeltaBuff_onData.getAvg()*10);
+				drawNextData2(Date.now()-timeReference, Math.random()*300);
+			    
+				
+				var _now=Date.now();
+				var _dlta=_now-_strt;
+				_avgDeltaBuff_onData.addToBuffer(_dlta);
+				t_output2.innerHTML= "onData: delta:" + _dlta + " dlta avg: "+ _avgDeltaBuff_onData.getAvg() + "ms " + Math.round(1000/_avgDeltaBuff_onData.getAvg()) + "Hz data: " ;
+				
+				
+			}
+			
+			var _avgDeltaBuff_drawNextData2 = new avgBuff();
+			
+			var _lastX=0;
+			var _lastY=windowHeight;
+			var white=true;
+			function drawNextData2(absX, data){
+			    var _strt_drawNextData2=Date.now();
+				
+			    data = windowHeight-data;
+				
+				var relX = absX%windowLength;
+				
+				if(relX<_lastX){ // dorysuj do konca ekranu, a potem od poczatku
+					
+					//cleen space on right end
+					ctx.fillStyle = 'white'; 
+				    ctx.fillRect(_lastX, 0, windowLength-_lastX, windowHeight);
+					_lastX=0;
+					_lastY = data;
+					
+					//cleen space on left end
+					ctx.fillStyle = 'white'; 
+				    ctx.fillRect(_lastX, 0, relX, windowHeight);
+					_lastX=relX;
+					_lastY = data;
+					
+					return;
+				}
+				
+				ctx.fillStyle = 'white'; 
+				ctx.fillRect(_lastX, 0, relX-_lastX, windowHeight);
+				ctx.fillStyle = 'red';
+				ctx.fillRect((relX+1)%windowLength, 0, 1, windowHeight);
+				
+				ctx.beginPath();
+				ctx.moveTo(_lastX, _lastY);
+			    ctx.lineTo(relX, data);
+				ctx.stroke();
+                _lastX = relX;
+				_lastY = data;
+				
+
+                var _now_drawNextData2 = Date.now();
+				var _delta_drawNextData2=_now_drawNextData2-_strt_drawNextData2;
+				_avgDeltaBuff_drawNextData2.addToBuffer(_delta_drawNextData2);				
+			    t_output.innerHTML= "drawNextData2: avgDelta:" + _avgDeltaBuff_drawNextData2.getAvg() + " data: " + data + " _lastX:" + _lastX + " relX: " + relX + " fill:" + ctx.fillStyle ;			
+			}
+			
+			var screenCursor=0;
+			var start = Date.now();
+			var lastData=windowHeight;
+			var lastCursor=0;
+			async function drawNextData(absX, data){
+			    data = windowHeight-data;
+				
+			    now = Date.now();
+				delta=now-start;
+				start=now;
+			    t_output.innerHTML= "drawNextData: " + delta + " data: "+data;
+				
+				
+				ctx.fillStyle = 'white';
+				ctx.fillRect(screenCursor, 0, 1, windowHeight);
+				ctx.fillStyle = 'red';
+				ctx.fillRect((screenCursor+1)%windowLength, 0, 1, windowHeight);
+				ctx.beginPath();
+				ctx.moveTo(lastCursor,lastData);
+			    ctx.lineTo(screenCursor, data);
+				ctx.stroke();
+				lastCursor=screenCursor;
+				lastData=data;
+				
+				if(screenCursor++>windowLength){
+				    screenCursor=0;
+				    lastCursor=0;
+				    lastData=data;
+				}	
+			}
+			
+			async function drawBufferedData(){
+			    ctx.moveTo(0,150);
+			    for(i=0;i<bufferLength;i++){
+				
+				    ctx.lineTo(i, buffer[i]);
+				    
+				}
+				ctx.stroke();
+			}
+			
+
+			function widthPlus(number){
+			    var canvas = document.getElementById('g_output');
+				canvas.width+=number;
+			}
+		</script>
+	</head>
+	<body onload="init()">
+	    <canvas id="g_output" width="1500" height="300" ></canvas>
+		
+		
+		<table>
+		    <tr>
+			    <td><button onclick="widthPlus(10)" >PLUS</button></td><!-- 1 -->
+				<td><button onclick="widthPlus(-10)">MINUS</button></td><!-- 2 -->
+				<td><button onclick="draw1()">draw1</button></td><!-- 3 -->
+				<td><button onclick="initUsb()">initUsb</button></td></td><!-- 4 -->
+				<td></td><!-- 5 -->
+			<tr>
+			<tr>
+			    <td></td><!-- 1 -->
+				<td></td><!-- 2 -->
+				<td></td><!-- 3 -->
+				<td></td><!-- 4 -->
+				<td></td><!-- 5 -->
+			<tr>
+			<tr>
+			    <td></td><!-- 1 -->
+				<td></td><!-- 2 -->
+				<td></td><!-- 3 -->
+				<td></td><!-- 4 -->
+				<td></td><!-- 5 -->
+			<tr>
+			<tr>
+			    <td></td><!-- 1 -->
+				<td></td><!-- 2 -->
+				<td></td><!-- 3 -->
+				<td></td><!-- 4 -->
+				<td></td><!-- 5 -->
+			<tr>
+			<tr>
+			    <td></td><!-- 1 -->
+				<td></td><!-- 2 -->
+				<td></td><!-- 3 -->
+				<td></td><!-- 4 -->
+				<td></td><!-- 5 -->
+			<tr>
+		</table>
+		<div id="t_output"></div>
+		<div id="t_output2"></div>
+		<div id="t_output3"></div>
+		<div id="t_output4"></div>
+	</body>
+</html>
